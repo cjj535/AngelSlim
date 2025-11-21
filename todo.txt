@@ -1,0 +1,10 @@
+1.需要确认取出的hidden states位置是否正确，默认配置是1，layers//2-1，layers-4，而原配置是2，layers//2，layers-3
+    应该都可以，但是需要训推保持一致
+2.offline模式是先生成hidden states，减少训练时target model的前向过程，好处是避免训练时加载target model，但是需要存储4倍训练数据
+    最好用offline的方式，方便利用算力和断点续训
+3.需要确认训练qwen3的draft model结构是仿llama还是qwen3
+    仿llama，暂时先按仿llama格式
+4.取出hidden state的方式是全量取出所有层的hidden state，再取所需，这样需要保存太多
+    offline模式可以不用考虑这一点
+5.重点读angleslim/compressor/speculative/train/trainer/eagle3_trainer.py 里面是训练过程，包含loss计算
+    angleslim/compressor/speculative/train/models/draft/llama_eagle3.py 里面是draft模型定义
