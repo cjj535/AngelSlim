@@ -181,6 +181,13 @@ class LlamaAttention(nn.Module):
         self.o_proj = nn.Linear(
             self.num_heads * self.head_dim, self.hidden_size, bias=False
         )
+        # 计算attn_weight前进行归一化，使得计算softmax时避开饱和区间
+        self.q_norm = LlamaRMSNorm(
+            self.head_dim, eps=config.rms_norm_eps
+        )  # unlike olmo, only on the head dim!
+        self.k_norm = LlamaRMSNorm(
+            self.head_dim, eps=config.rms_norm_eps
+        )  # thus post q_norm does not need reshape
         self._init_rope()
 
     def _init_rope(self):
@@ -234,11 +241,11 @@ class LlamaAttention(nn.Module):
         # cache_k = [self.k_proj(hidden) for hidden in cache_hidden]
         # cache_v = [self.v_proj(hidden) for hidden in cache_hidden]
 
-        query_states = query_states.view(
-            bsz, q_len, self.num_heads, self.head_dim
+        query_states = self.q_norm(
+            query_states.view(bsz, q_len, self.num_heads, self.head_dim)
         ).transpose(1, 2)
-        key_states = key_states.view(
-            bsz, q_len, self.num_key_value_heads, self.head_dim
+        key_states = self.k_norm(
+            key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
         ).transpose(1, 2)
         value_states = value_states.view(
             bsz, q_len, self.num_key_value_heads, self.head_dim

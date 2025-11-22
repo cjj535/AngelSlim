@@ -8,3 +8,21 @@
     offline模式可以不用考虑这一点
 5.重点读angleslim/compressor/speculative/train/trainer/eagle3_trainer.py 里面是训练过程，包含loss计算
     angleslim/compressor/speculative/train/models/draft/llama_eagle3.py 里面是draft模型定义
+6.理清楚offline训练过程
+    offline训练开始前需要先调用tools/generate_hidden_for_draft_model.py生成输入数据，用ckpt保存，
+    直接加载输入数据和target model的lm_head，开始训练
+    用ckpt格式保存数据可以沿用，但是对话数据格式需要调整。原来使用的是openai对话格式，修改格式需要看
+    angleslim/compressor/speculative/train/data/dataset.py(154):_preprocess_function
+
+7.eagle模式，对于某一个模型，需要
+    合成数据
+    定义eagle模型（可以直接用llama decode layer，除decode layer需要修改，其他保持一致）
+    训练draft模型
+    部署eagle推理（这个可以直接用通用的框架完成）
+
+
+8.已修改部分：
+    angleslim/compressor/speculative/train/models/draft/llama_eagle3.py：根据qwen3结构，添加qk的归一化
+    angleslim/compressor/speculative/train/models/target/target_model_wrapper.py：修改取出的hidden state的层数
+    添加qwen3-32B的config配置
+    还需要修改拉起训练的脚本，主要是offline训练脚本
