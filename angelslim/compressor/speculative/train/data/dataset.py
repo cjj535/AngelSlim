@@ -114,6 +114,7 @@ class DatasetBuilder:
         rank0_print(conversation)
         rank0_print("=" * 80 + "\n")
 
+    # 加载对话数据
     def build_dataset(
         self, datapath: str, num_proc: int = 8, shuffle: bool = True
     ) -> Dataset:
@@ -173,6 +174,7 @@ class DatasetBuilder:
 
         return new_examples
 
+    # 处理一个conversation
     def _process_single_conversation(
         self, conversation_data: List[Dict]
     ) -> Optional[Dict]:

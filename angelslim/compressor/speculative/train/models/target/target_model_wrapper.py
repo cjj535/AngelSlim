@@ -109,15 +109,10 @@ class BaseBackend(ABC):
         Returns:
             List of three layer indices [low, mid, high]
         """
-        # return [
-        #     1,  # Early layer
-        #     total_layers // 2 - 1,  # Middle layer
-        #     total_layers - 4,  # Late layer (before final layers)
-        # ]
         return [
-            2,  # Early layer
-            total_layers // 2,  # Middle layer
-            total_layers - 3,  # Late layer (before final layers)
+            1,  # Early layer
+            total_layers // 2 - 1,  # Middle layer
+            total_layers - 4,  # Late layer (before final layers)
         ]
 
     def _extract_auxiliary_hidden_states(

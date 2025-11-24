@@ -181,6 +181,7 @@ class LlamaAttention(nn.Module):
         self.o_proj = nn.Linear(
             self.num_heads * self.head_dim, self.hidden_size, bias=False
         )
+        # 修改attention，适配qwen3
         # 计算attn_weight前进行归一化，使得计算softmax时避开饱和区间
         self.q_norm = LlamaRMSNorm(
             self.head_dim, eps=config.rms_norm_eps

@@ -23,6 +23,5 @@
 
 8.已修改部分：
     angleslim/compressor/speculative/train/models/draft/llama_eagle3.py：根据qwen3结构，添加qk的归一化
-    angleslim/compressor/speculative/train/models/target/target_model_wrapper.py：修改取出的hidden state的层数
     添加qwen3-32B的config配置
     还需要修改拉起训练的脚本，主要是offline训练脚本
