@@ -12,5 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .compressor_factory import CompressorFactory  # noqa: F401
-from .quant import PTQ  # noqa: F401
+# from .compressor_factory import CompressorFactory  # noqa: F401
+# from .quant import PTQ  # noqa: F401

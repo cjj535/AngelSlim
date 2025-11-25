@@ -1,13 +1,17 @@
 #!/bin/bash
 
-DATASET_PATH=
-MODEL_NAME=
+# DATASET_PATH=/home/c00882514/AngelSlim/synthetic_data/eval.jsonl
+DATASET_PATH=/home/c00882514/AngelSlim/synthetic_data/train.jsonl
+MODEL_NAME=/home/c00882514/Qwen3-32B
 TARGET_BACKEND=hf
 MODEL_MAX_LENGTH=2048
 CHAT_TEMPLATE_TYPE=qwen3
-OUTPUT_DIR=
+# OUTPUT_DIR=/home/c00882514/AngelSlim/synthetic_data/eval
+OUTPUT_DIR=/home/c00882514/AngelSlim/synthetic_data/train
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
-torchrun --nproc_per_node=8 \
+export ASCEND_RT_VISIBLE_DEVICES=4,5,6,7
+torchrun --nproc_per_node=4 --master_port=29600 \
     tools/generate_hidden_for_draft_model.py \
     --dataset_path $DATASET_PATH \
     --model_name $MODEL_NAME \

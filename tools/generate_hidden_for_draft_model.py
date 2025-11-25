@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, Tuple
 
 import torch
+import torch_npu
 import torch.distributed as dist
 from tqdm import tqdm
 
@@ -46,8 +47,9 @@ def setup_distributed():
         local_rank = int(os.environ["LOCAL_RANK"])
 
         # Initialize process group
-        dist.init_process_group(backend="nccl")
-        torch.cuda.set_device(local_rank)
+        print(f"use hccl env, world size={world_size}, rank={local_rank}")
+        dist.init_process_group(backend="hccl", init_method="env://")
+        torch_npu.npu.set_device(local_rank)
 
         return rank, world_size, local_rank
     else:

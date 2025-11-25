@@ -252,7 +252,7 @@ def print_with_rank(*args, **kwargs):
     # Print with rank prefix
     print(prefix, *args, **kwargs)
 
-
+import torch_npu
 def decide_device_for_distributed():
     """
     Decide the appropriate device for model in distributed training context (torchrun).
@@ -274,12 +274,12 @@ def decide_device_for_distributed():
     # Determine device based on distributed info
     if local_rank >= 0:
         # torchrun with LOCAL_RANK
-        device = f"cuda:{local_rank}"
+        device = f"npu:{local_rank}"
     elif rank >= 0:
         # Distributed initialized without LOCAL_RANK
-        device = f"cuda:{rank}"
+        device = f"npu:{rank}"
     else:
         # Single process fallback
-        device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        device = "npu:0" if torch_npu.npu.is_available() else "cpu"
 
     return device

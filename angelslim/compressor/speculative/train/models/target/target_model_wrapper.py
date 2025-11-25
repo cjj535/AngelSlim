@@ -170,6 +170,15 @@ class TransformersBackend(BaseBackend):
         self._freeze_model_parameters()
         self.model.eval()
 
+        # FSDP2切分模型
+        from torch.distributed.fsdp import fully_shard
+        for layer in self.model.model.layers:
+            fully_shard(layer)
+        fully_shard(self.model)
+
+        self._freeze_model_parameters()
+        self.model.eval()
+
         # Load tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, trust_remote_code=True
@@ -187,7 +196,7 @@ class TransformersBackend(BaseBackend):
         """
         default_kwargs = {
             "dtype": torch.bfloat16,
-            "device_map": device,
+            # "device_map": device,
             "trust_remote_code": True,
         }
         default_kwargs.update(self.kwargs)
