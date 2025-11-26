@@ -110,11 +110,22 @@ class EvaluationConfig:
 
 def setup_seed(seed: int) -> None:
     """Set random seed for reproducibility"""
+    # torch.manual_seed(seed)
+    # torch.cuda.manual_seed_all(seed)
+    # np.random.seed(seed)
+    # random.seed(seed)
+    # torch.backends.cudnn.deterministic = True
+    import torch_npu
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
     random.seed(seed)
-    torch.backends.cudnn.deterministic = True
+    np.random.seed(seed)
+    if torch.npu.is_available():
+        torch_npu.npu.manual_seed(seed)
+        torch_npu.npu.manual_seed_all(seed)
+
+    os.environ['HCCL_DETERMINISTIC'] = 'True'
+    os.environ['CANN_RANDOM_SEED'] = '42'
+    torch.use_deterministic_algorithms(True)
 
 
 def initialize_model(config: EvaluationConfig, args: argparse.Namespace):
@@ -132,7 +143,7 @@ def initialize_model(config: EvaluationConfig, args: argparse.Namespace):
         disable_log_stats=False,
         speculative_config=speculative_config,
     )
-    print(f'CUDA_VISIBLE_DEVICES: {os.environ.get("CUDA_VISIBLE_DEVICES")}')
+    print(f'VISIBLE_DEVICES: {os.environ.get("ASCEND_RT_VISIBLE_DEVICES")}')
     return llm
 
 
@@ -242,7 +253,7 @@ def get_model_answers(
     """Generate answers for a batch of questions."""
     config = EvaluationConfig(args)
     if device_list:
-        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, device_list))
+        os.environ["ASCEND_RT_VISIBLE_DEVICES"] = ",".join(map(str, device_list))
 
     llm = initialize_model(config, args)
     tokenizer = AutoTokenizer.from_pretrained(config.base_model_path)

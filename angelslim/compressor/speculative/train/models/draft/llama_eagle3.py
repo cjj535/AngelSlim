@@ -181,14 +181,6 @@ class LlamaAttention(nn.Module):
         self.o_proj = nn.Linear(
             self.num_heads * self.head_dim, self.hidden_size, bias=False
         )
-        # 修改attention，适配qwen3
-        # 计算attn_weight前进行归一化，使得计算softmax时避开饱和区间
-        self.q_norm = LlamaRMSNorm(
-            self.head_dim, eps=config.rms_norm_eps
-        )  # unlike olmo, only on the head dim!
-        self.k_norm = LlamaRMSNorm(
-            self.head_dim, eps=config.rms_norm_eps
-        )  # thus post q_norm does not need reshape
         self._init_rope()
 
     def _init_rope(self):
@@ -242,11 +234,11 @@ class LlamaAttention(nn.Module):
         # cache_k = [self.k_proj(hidden) for hidden in cache_hidden]
         # cache_v = [self.v_proj(hidden) for hidden in cache_hidden]
 
-        query_states = self.q_norm(
-            query_states.view(bsz, q_len, self.num_heads, self.head_dim)
+        query_states = query_states.view(
+            bsz, q_len, self.num_heads, self.head_dim
         ).transpose(1, 2)
-        key_states = self.k_norm(
-            key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
+        key_states = key_states.view(
+            bsz, q_len, self.num_key_value_heads, self.head_dim
         ).transpose(1, 2)
         value_states = value_states.view(
             bsz, q_len, self.num_key_value_heads, self.head_dim
@@ -334,37 +326,35 @@ class LlamaMLP(nn.Module):
         self.act_fn = ACT2FN[config.hidden_act]
 
     def forward(self, x):
-        # if self.config.pretraining_tp > 1:
-        #     slice = self.intermediate_size // self.config.pretraining_tp
-        #     gate_proj_slices = self.gate_proj.weight.split(slice, dim=0)
-        #     up_proj_slices = self.up_proj.weight.split(slice, dim=0)
-        #     down_proj_slices = self.down_proj.weight.split(slice, dim=1)
+        if self.config.pretraining_tp > 1:
+            slice = self.intermediate_size // self.config.pretraining_tp
+            gate_proj_slices = self.gate_proj.weight.split(slice, dim=0)
+            up_proj_slices = self.up_proj.weight.split(slice, dim=0)
+            down_proj_slices = self.down_proj.weight.split(slice, dim=1)
 
-        #     gate_proj = torch.cat(
-        #         [
-        #             F.linear(x, gate_proj_slices[i])
-        #             for i in range(self.config.pretraining_tp)
-        #         ],
-        #         dim=-1,
-        #     )
-        #     up_proj = torch.cat(
-        #         [
-        #             F.linear(x, up_proj_slices[i])
-        #             for i in range(self.config.pretraining_tp)
-        #         ],
-        #         dim=-1,
-        #     )
+            gate_proj = torch.cat(
+                [
+                    F.linear(x, gate_proj_slices[i])
+                    for i in range(self.config.pretraining_tp)
+                ],
+                dim=-1,
+            )
+            up_proj = torch.cat(
+                [
+                    F.linear(x, up_proj_slices[i])
+                    for i in range(self.config.pretraining_tp)
+                ],
+                dim=-1,
+            )
 
-        #     intermediate_states = (self.act_fn(gate_proj) * up_proj).split(slice, dim=2)
-        #     down_proj = [
-        #         F.linear(intermediate_states[i], down_proj_slices[i])
-        #         for i in range(self.config.pretraining_tp)
-        #     ]
-        #     down_proj = sum(down_proj)
-        # else:
-        #     down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
-        # qwen3没有pretraining tp参数，可以忽略
-        down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
+            intermediate_states = (self.act_fn(gate_proj) * up_proj).split(slice, dim=2)
+            down_proj = [
+                F.linear(intermediate_states[i], down_proj_slices[i])
+                for i in range(self.config.pretraining_tp)
+            ]
+            down_proj = sum(down_proj)
+        else:
+            down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
 
         return down_proj
 
@@ -472,13 +462,12 @@ class Eagle3LlamaForCausalLM(Eagle3BaseDraftModel):
 
         self.vocab_size = config.vocab_size
         self.draft_vocab_size = config.draft_vocab_size
-        # qwen3没有pad_tok_id，但是embedding层本来就要从target model里取，所以不重要
         self.padding_idx = config.pad_token_id
         self.hidden_size = config.hidden_size
         self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.fc = nn.Linear(self.hidden_size * 3, self.hidden_size, bias=False)
         self.embed_tokens = nn.Embedding(
-            config.vocab_size, config.hidden_size, self.padding_idx     # 这里传入的padding_idx为None
+            config.vocab_size, config.hidden_size, self.padding_idx
         )
 
         # create vocab buffers

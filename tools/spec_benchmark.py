@@ -23,11 +23,23 @@ from angelslim.engine import SpecEngine
 
 def setup_seed(seed: int) -> None:
     """Set random seed for reproducibility"""
+    # torch.manual_seed(seed)
+    # torch.cuda.manual_seed_all(seed)
+    # np.random.seed(seed)
+    # random.seed(seed)
+    # torch.backends.cudnn.deterministic = True
+    import torch_npu
+    import os
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
     random.seed(seed)
-    torch.backends.cudnn.deterministic = True
+    np.random.seed(seed)
+    if torch.npu.is_available():
+        torch_npu.npu.manual_seed(seed)
+        torch_npu.npu.manual_seed_all(seed)
+
+    os.environ['HCCL_DETERMINISTIC'] = 'True'
+    os.environ['CANN_RANDOM_SEED'] = '42'
+    torch.use_deterministic_algorithms(True)
 
 
 def parse_args() -> argparse.Namespace:
