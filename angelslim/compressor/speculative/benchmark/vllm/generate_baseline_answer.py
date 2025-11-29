@@ -27,7 +27,34 @@ import torch
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
-from angelslim.utils.lazy_imports import fastchat, shortuuid, vllm
+from angelslim.utils.lazy_imports import vllm
+
+import uuid, base64
+
+def short_id():
+    return base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8')
+
+import json
+
+def load_questions_simple(path, begin=None, end=None):
+    questions = []
+
+    # 支持 .jsonl（每行一个 json）
+    if path.endswith(".jsonl"):
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    questions.append(json.loads(line))
+    else:
+        # 普通 JSON 列表
+        with open(path, "r", encoding="utf-8") as f:
+            questions = json.load(f)
+
+    # 切片
+    if begin is not None or end is not None:
+        questions = questions[begin:end]
+
+    return questions
 
 SYSTEM_PROMPT = {
     "role": "system",
@@ -312,7 +339,7 @@ def get_model_answers(
 
             ans_json = {
                 "question_id": question["question_id"],
-                "answer_id": shortuuid.uuid(),
+                "answer_id": short_id(),
                 "model_id": model_id,
                 "choices": choices,
                 "tstamp": time.time(),
@@ -329,7 +356,7 @@ def get_model_answers(
 
 def run_evaluation(config: EvaluationConfig, args: argparse.Namespace) -> None:
     """Run the evaluation. Standalone execution is single-process."""
-    questions = fastchat.llm_judge.common.load_questions(
+    questions = load_questions_simple(
         config.question_file, args.question_begin, args.question_end
     )
 

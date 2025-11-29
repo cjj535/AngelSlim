@@ -20,10 +20,28 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Optional
 
-from angelslim.utils.lazy_imports import fastchat
-
 from .generate_baseline_answer import get_model_answers as get_baseline_answers
 from .generate_eagle_answer import get_model_answers as get_eagle_answers
+
+def load_questions_simple(path, begin=None, end=None):
+    questions = []
+
+    # 支持 .jsonl（每行一个 json）
+    if path.endswith(".jsonl"):
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    questions.append(json.loads(line))
+    else:
+        # 普通 JSON 列表
+        with open(path, "r", encoding="utf-8") as f:
+            questions = json.load(f)
+
+    # 切片
+    if begin is not None or end is not None:
+        questions = questions[begin:end]
+
+    return questions
 
 
 class BenchmarkMode(Enum):
@@ -147,7 +165,7 @@ class BenchmarkEngine:
         os.makedirs(os.path.dirname(self.eagle_file), exist_ok=True)
 
         question_file = self._get_question_file_path()
-        questions = fastchat.llm_judge.common.load_questions(
+        questions = load_questions_simple(
             question_file,
             self.config.question_begin,
             self.config.question_end,
@@ -211,7 +229,7 @@ class BenchmarkEngine:
         os.makedirs(os.path.dirname(self.baseline_file), exist_ok=True)
 
         question_file = self._get_question_file_path()
-        questions = fastchat.llm_judge.common.load_questions(
+        questions = load_questions_simple(
             question_file,
             self.config.question_begin,
             self.config.question_end,
