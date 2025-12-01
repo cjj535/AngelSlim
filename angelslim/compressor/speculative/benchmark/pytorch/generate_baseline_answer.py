@@ -20,12 +20,36 @@ import time
 from typing import Any, Dict, List
 
 import numpy as np
-import shortuuid
 import torch
 from tqdm import tqdm
+import torch_npu
 
 from angelslim.compressor.speculative.inference.models import Eagle3Model
-from angelslim.utils.lazy_imports import fastchat, ray
+from angelslim.utils.lazy_imports import ray
+
+import uuid, base64
+def short_id():
+    return base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8')
+
+def load_questions_simple(path, begin=None, end=None):
+    questions = []
+
+    # 支持 .jsonl（每行一个 json）
+    if path.endswith(".jsonl"):
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    questions.append(json.loads(line))
+    else:
+        # 普通 JSON 列表
+        with open(path, "r", encoding="utf-8") as f:
+            questions = json.load(f)
+
+    # 切片
+    if begin is not None or end is not None:
+        questions = questions[begin:end]
+
+    return questions
 
 SYSTEM_PROMPT = {
     "role": "system",
@@ -75,11 +99,21 @@ class EvaluationConfig:
 
 def setup_seed(seed: int) -> None:
     """Set random seed for reproducibility"""
+    # torch.manual_seed(seed)
+    # torch.cuda.manual_seed_all(seed)
+    # np.random.seed(seed)
+    # random.seed(seed)
+    # torch.backends.cudnn.deterministic = True
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
     random.seed(seed)
-    torch.backends.cudnn.deterministic = True
+    np.random.seed(seed)
+    if torch.npu.is_available():
+        torch_npu.npu.manual_seed(seed)
+        torch_npu.npu.manual_seed_all(seed)
+
+    os.environ['HCCL_DETERMINISTIC'] = 'True'
+    os.environ['CANN_RANDOM_SEED'] = '42'
+    torch.use_deterministic_algorithms(True)
 
 
 def initialize_model(config: EvaluationConfig) -> Eagle3Model:
@@ -95,7 +129,7 @@ def initialize_model(config: EvaluationConfig) -> Eagle3Model:
     )
     model.eval()
     print(f"Model training state: {model.training}")
-    print(f'CUDA VISIBLE DEVICES: {os.environ.get("CUDA_VISIBLE_DEVICES")}')
+    print(f'NPU VISIBLE DEVICES: {os.environ.get("ASCEND_RT_VISIBLE_DEVICES")}')
     return model
 
 
@@ -116,14 +150,14 @@ def process_conversation_turn(
         conversation, return_tensors="pt", max_length=2048, add_special_tokens=False
     ).input_ids
 
-    torch.cuda.synchronize()
+    torch_npu.npu.synchronize()
     start_time = time.time()
 
     output_ids, new_token, idx = model.naive_generate(
-        torch.as_tensor(input_ids).cuda(), temperature=temperature, log=True
+        torch.as_tensor(input_ids).npu(), temperature=temperature, log=True
     )
 
-    torch.cuda.synchronize()
+    torch_npu.npu.synchronize()
     total_time = time.time() - start_time
     output_ids = output_ids[0][len(input_ids[0]) :]
 
@@ -222,7 +256,7 @@ def get_model_answers(
         with open(os.path.expanduser(answer_file), "a") as fout:
             ans_json = {
                 "question_id": question["question_id"],
-                "answer_id": shortuuid.uuid(),
+                "answer_id": short_id(),
                 "model_id": model_id,
                 "choices": choices,
                 "tstamp": time.time(),
@@ -232,7 +266,7 @@ def get_model_answers(
 
 def run_evaluation(config: EvaluationConfig, args: argparse.Namespace) -> None:
     """Run the evaluation with optional distributed processing"""
-    questions = fastchat.llm_judge.common.load_questions(
+    questions = load_questions_simple(
         config.question_file, args.question_begin, args.question_end
     )
 

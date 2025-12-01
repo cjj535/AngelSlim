@@ -30,11 +30,8 @@ from transformers import AutoTokenizer
 from angelslim.utils.lazy_imports import vllm
 
 import uuid, base64
-
 def short_id():
     return base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8')
-
-import json
 
 def load_questions_simple(path, begin=None, end=None):
     questions = []

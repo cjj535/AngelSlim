@@ -22,11 +22,30 @@ from typing import Any, Dict, Optional
 import numpy as np
 from transformers import AutoTokenizer
 
-from angelslim.utils.lazy_imports import fastchat, ray
+from angelslim.utils.lazy_imports import ray
 
 from .generate_baseline_answer import get_model_answers as get_baseline_answers
 from .generate_eagle_answer import get_model_answers as get_eagle_answers
 
+def load_questions_simple(path, begin=None, end=None):
+    questions = []
+
+    # 支持 .jsonl（每行一个 json）
+    if path.endswith(".jsonl"):
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    questions.append(json.loads(line))
+    else:
+        # 普通 JSON 列表
+        with open(path, "r", encoding="utf-8") as f:
+            questions = json.load(f)
+
+    # 切片
+    if begin is not None or end is not None:
+        questions = questions[begin:end]
+
+    return questions
 
 class BenchmarkMode(Enum):
     """Benchmark execution modes"""
@@ -150,7 +169,7 @@ class BenchmarkEngine:
         """Run Eagle speculative decoding benchmark"""
         args = self._create_args_namespace("eagle")
 
-        questions = fastchat.llm_judge.common.load_questions(
+        questions = load_questions_simple(
             self._get_question_file_path(),
             self.config.question_begin,
             self.config.question_end,
@@ -190,7 +209,7 @@ class BenchmarkEngine:
         """Run baseline benchmark"""
         args = self._create_args_namespace("baseline")
 
-        questions = fastchat.llm_judge.common.load_questions(
+        questions = load_questions_simple(
             self._get_question_file_path(),
             self.config.question_begin,
             self.config.question_end,

@@ -19,6 +19,7 @@ from typing import Any, Dict, Optional
 
 import torch
 
+# from .compressor.speculative.benchmark import pytorch as pytorch_benchmark
 from .compressor.speculative.benchmark import vllm as vllm_benchmark
 
 
